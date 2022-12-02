@@ -1,3 +1,3 @@
 # taqueria
 
-A sample app for ordering burritos, and sending OTLP signals to Dynatrace
+A sample app for ordering 🌮 or 🌯 & sending OTLP signals to Dynatrace

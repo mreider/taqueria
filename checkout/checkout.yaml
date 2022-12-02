@@ -1,0 +1,52 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout
+spec:
+  selector:
+    matchLabels:
+      app: checkout
+  template:
+    metadata:
+      labels:
+        app: checkout
+      annotations:
+        oneagent.dynatrace.com/inject: "false"
+    spec:
+      containers:
+        - name: checkout
+          image: mreider/taqueria-checkout
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5002
+          env:
+            - name: app
+              value: "k8s"
+            - name: ipinfo_token
+              valueFrom:
+                secretKeyRef:
+                  name: taqeuria
+                  key: iptoken
+            - name: dt_token
+              valueFrom:
+                secretKeyRef:
+                  name: taqeuria
+                  key: dttoken
+            - name: dt_url
+              valueFrom:
+                configMapKeyRef:
+                  name: taqueria
+                  key: dtendpoint
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: checkout
+spec:
+  selector:
+    app: checkout
+  ports:
+    - protocol: "TCP"
+      port: 5002
+      targetPort: 5002

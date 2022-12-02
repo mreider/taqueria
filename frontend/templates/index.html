@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Taqueria</title>
+  <script src="http://code.jquery.com/jquery-latest.js"></script>
+  <script src= "https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" />
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+  <link rel="stylesheet" href="/static/loader.css" />
+</head>
+<body>
+  <div id="loader"></div>
+  <div class="container"><br /><br />
+    <input id = "order" type="submit" value=" order 👝"/><br /><br />
+    <div class="table-responsive" id="order_table">
+    </div>
+  </div>
+  <script>
+    $(document).ready(function(){
+      function emojizer(num,type) {
+        emojis = ""
+        if (num == 0) {emojis = "❌";}
+        for (let index = 0; index < num; ++index) { 
+          switch (type) {
+            case 'b':
+              emojis = emojis + "🌯";
+              break;
+            case 't':
+              emojis = emojis + "🌮";
+              break;
+            case 'c':
+              emojis = emojis + "✅";
+              break;
+            default:
+              console.log('wrong type');
+          }
+        }
+      return emojis
+    }
+    function load_orders(){
+      return $.getJSON("/orders").then(function(data){
+        parsed = jQuery.parseJSON(data);
+        var order_data ='<table class="table table-bordered table-striped"> \
+        <tr> \
+          <th>Burritos</th> \
+          <th>$/per</th> \
+          <th>Tacos</th> \
+          <th>$/per</th> \
+          <th>Order Total</th> \
+          <th>Delivered</th> \
+        </tr>';
+        $.each(parsed.orders, function(key, value){
+          order_data += '<tr>';
+          order_data += '<td>' + emojizer(value.burritos,"b") +'</td>';
+          order_data += '<td>' +value.price_per_burrito+'</td>';
+          order_data += '<td>' + emojizer(value.tacos,"t") +'</td>';
+          order_data += '<td>' +value.price_per_taco+'</td>';
+          order_data += '<td>' +value.order_total+'</td>';
+          order_data += '<td>' + emojizer(value.order_complete,"c") +'</td>';
+          order_data += '<tr>';
+      });
+      order_data += "</table>";
+      $('#order_table').html(order_data);
+    });
+    }
+  
+    $("#order").click(function(){
+      $('#loader').show();
+        $.get( "/checkout", function( data ) {
+          load_orders().then(function(returndata){
+            $('#loader').hide();
+          });
+    });
+    });
+
+    load_orders();
+  });
+    </script>
+</body>
+</html>

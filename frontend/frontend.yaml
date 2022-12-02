@@ -1,0 +1,38 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+      annotations:
+        oneagent.dynatrace.com/inject: "false"
+    spec:
+      containers:
+        - name: frontend
+          image: mreider/taqueria-frontend
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5001
+          env:
+            - name: app
+              value: "k8s"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  selector:
+    app: frontend
+  ports:
+    - protocol: "TCP"
+      port: 80
+      targetPort: 5001
+  type: LoadBalancer

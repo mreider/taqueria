@@ -1,19 +1,17 @@
 from opentelemetry import metrics as metrics
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.sdk.metrics.export import (AggregationTemporality,PeriodicExportingMetricReader,)
 from opentelemetry.sdk.metrics import Counter, MeterProvider
 from opentelemetry.metrics import set_meter_provider, get_meter_provider
-from flask import Flask, render_template, url_for
+from flask import Flask, render_template, url_for, request
 from redis import Redis
 import os
 import uuid
 import json
-import time
 import requests
 import random
 import pickle
-import ipinfo
 
 
 ###############################
@@ -32,9 +30,11 @@ merged.update({
     "service.version": "1.0.1",
 })
 
+token_string = "Api-Token " + os.environ['dt_token']
+
 exporter = OTLPMetricExporter(
-    endpoint=os.environ["dt_url"], 
-    headers={"Authorization": os.environ["dt_token"]},
+    endpoint=os.environ["dt_metrics_endpoint"],
+    headers = {"Authorization": token_string },
     preferred_temporality={Counter: AggregationTemporality.DELTA})
 
 resource = Resource.create(merged)
@@ -80,8 +80,8 @@ def deliver_order(order,details):
     order_json = json.dumps(order)
     resp = requests.post(url=delivery_url, json=order_json)
     # and now we're going to send some otel metrics.
-    attributes = { "country": details.country , "city": details.city } #TODO Replace with your own attributes
-    counter.add(Math.round(order.order_total, attributes))
+    attributes = { "country": details.country_name , "city": details.city } #TODO Replace with your own attributes
+    counter.add( float(order['order_total'][1:]), attributes)
     return True
 
 @app.route('/')
@@ -102,15 +102,9 @@ def home():
     }
     pickled_order = pickle.dumps(order)
     submit_order(order_number, pickled_order)
-
-    # here's the ipinfo token too
-    # that's so we can send country
-    # info to Dynatrace via oTel
-    access_token = os.environ["ipinfo_token"]
-    handler = ipinfo.getHandler(access_token)
-    ip_address = request.remote_addr
-    details = handler.getDetails(ip_address)
-    # now we can access details.country etc 
+    details = {}
+    details['country'] = "United States"
+    details['city'] = random.choice("San Francisco","Los Angeles")
 
     deliver_order(order,details)
     return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 

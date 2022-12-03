@@ -3,6 +3,7 @@ import requests
 import json
 import os
 import opentelemetry-exporter-otlp-proto-http
+import opentelemetry-instrumentation
 
 if os.environ["app"] == "local":
     checkout_url = "http://127.0.0.1:5002"

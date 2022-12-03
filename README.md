@@ -1,3 +1,200 @@
 # taqueria
 
-A sample app for ordering 🌮 or 🌯 & sending OTLP signals to Dynatrace
+Order tacos 🌮 or burritos 🌯 & send OTLP signals to Dynatrace.
+
+This app is written in Python 🐍.
+
+![ordering food](taqueria.gif)
+
+## Transaction flow
+
+```
+┌───────────┐   ┌──────────┐  ┌──────────────┐   
+│           │   │          │  │              │   
+│           │   │          │  │              │   
+│ Frontend  │   │ Checkout │  │   Delivery   │   
+│           │   │          │  │              │   
+│           │   │          │  │              │   
+└───────────┘   └──────────┘  └──────────────┘   
+                                                 
+ ┌───────────┐                   ┌───────────┐   
+ │  /orders  ├────────────────▶  │  /orders  │◀─┐
+ └───────────┘                   └───────────┘  │
+       ┌────────────────────────────────┐       │
+       │  gets JSON of current orders   │       │
+       └────────────────────────────────┘       │
+                                                │
+ ┌───────────┐   ┌──────────┐                   │
+ │ /checkout ├───▶    /     │─────────┐         │
+ └───────────┘   └──────────┘         │         │
+                                      ▼         │
+  ┌─────────────────────────┐   ┌──────────┐    │
+  │  Add an order to Redis  │   │    /     │──┐ │
+  └─────────────────────────┘   └──────────┘  │ │
+               │                              │ │
+               │          ┌─────────────────┐ │ │
+               │          │Mark as delivered│ │ │
+               │          │   and expire    │ │ │
+               │          └─────────────────┘ │ │
+               │                              │ │
+               │           ┌───────────────┐  │ │
+               └──────────▶│     Redis     │◀─┘ │
+                           └───────────────┘    │
+                                   ▲            │
+                                   │            │
+                                   └────────────┘
+```
+
+## Run locally or on a VM
+
+There are three microservices, each in their own subdirectory.
+
+- frontend/frontend.py
+- checkout/checkout.py
+- delivery/delivery.py
+
+### Prerequisites
+
+- python 3.6+
+- redis
+- a Dynatrace data ingest token (Data ingest, e.g.: metrics and events)
+
+Mac users can run `./install-local.sh` to install redis run pip install for each microservice.
+
+### Environment variables
+
+```
+export app=local
+export dt_url='https://(your dynatrace endpoint)/api/v2/otlp/v1/metrics'
+export dt_token='(your dynatrace token)'
+```
+
+## Running in Kubernetes
+
+### Dynatrace prerequisites
+
+Works as of December 2022. Who knows if they still work today 😥?
+
+- An API access token with these scopes:
+    - Access problem event feed, metrics, and topology (DataExport)
+    - PaaS integration - Installer download (InstallerDownload)
+    - Create ActiveGate tokens1 (activeGateTokenManagement.create)
+    - Read entities (entities.read)
+    - Read settings2 (settings.read)
+    - Write settings2 (settings.write)
+- A data ingest token 
+    - Data ingest, e.g.: metrics and events (DataImport)
+    - Ingest OpenTelemetry traces  (openTelemetryTrace.ingest)
+
+
+#### Install the Dynatrace Operator in Cloud Native mode
+
+```
+kubectl create namespace dynatrace
+kubectl -n dynatrace create secret generic dynakube --from-literal="apiToken=(your token)" --from-literal="dataIngestToken=(your token)"
+kubectl apply -f https://github.com/Dynatrace/dynatrace-operator/releases/download/v0.10.0/kubernetes.yaml
+kubectl apply -f https://github.com/Dynatrace/dynatrace-operator/releases/download/v0.10.0/kubernetes-csi.yaml
+```
+
+#### Create a Dynakube as follows:
+
+Make sure to edit `apiURL` with your api address.
+
+```
+apiVersion: dynatrace.com/v1beta1
+kind: DynaKube
+metadata:
+  name: dynakube
+  namespace: dynatrace
+  annotations:
+    feature.dynatrace.com/automatic-kubernetes-api-monitoring: "true"
+spec:
+  namespaceSelector:
+    matchLabels:
+      monitoring: dynatrace
+  apiUrl: https://(YOUR API URL)/api
+  oneAgent:
+    cloudNativeFullStack:
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+          operator: Exists
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/control-plane
+          operator: Exists
+  activeGate:
+    capabilities:
+      - routing
+      - kubernetes-monitoring
+      - dynatrace-api
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1.5Gi
+```
+
+#### Deploy the Dynakube
+
+```
+kubectl apply -f dynakube.yaml
+```
+
+### Deploy the Taqueria app
+
+#### Create and label the namespace
+
+```
+kubectl create namespace taqueria
+kubectl label namespace taqueria monitoring=dynatrace
+```
+
+#### Create secrets and configmap
+
+Save this as `taqueria.yaml`
+
+```
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taqueria
+  namespace: taqueria
+data:
+  dt_metrics_endpoint: "https://(your dyntrace environment)/api/v2/otlp/v1/metrics"
+  dt_traces_endpoint: "https://(your dynatrace environemtn)/api/v2/otlp/v1/traces"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: taqueria
+type: Opaque
+stringData:
+    dttoken: "your trace / metric ingest token"
+```
+
+#### Deploy the secret and configmap
+
+
+```
+kubectl apply -f taqueria.yaml -n taqueria
+```
+
+#### Deploy the application (tested on GKE, YMMV on others)
+
+```
+./deploy.sh
+```
+
+#### Get the load balancer ingress IP address
+
+```
+kubectl describe services frontend -n taqueria
+```
+
+## Questions?
+
+File a [Github issue](https://github.com/mreider/taqueria/issues)
+
+Thanks! 👨‍🦲

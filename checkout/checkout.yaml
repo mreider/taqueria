@@ -23,11 +23,8 @@ spec:
           env:
             - name: app
               value: "k8s"
-            - name: ipinfo_token
-              valueFrom:
-                secretKeyRef:
-                  name: taqueria
-                  key: iptoken
+            - name: FLASK_ENV
+              value: production
             - name: dt_token
               valueFrom:
                 secretKeyRef:

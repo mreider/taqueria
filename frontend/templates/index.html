@@ -6,6 +6,7 @@
   <script src= "https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" />
   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+  {{rum_code|safe}}
   <link rel="stylesheet" href="/static/loader.css" />
 </head>
 <body>
@@ -43,18 +44,14 @@
         var order_data ='<table class="table table-bordered table-striped"> \
         <tr> \
           <th>Burritos</th> \
-          <th>$/per</th> \
           <th>Tacos</th> \
-          <th>$/per</th> \
           <th>Order Total</th> \
           <th>Delivered</th> \
         </tr>';
         $.each(parsed.orders, function(key, value){
           order_data += '<tr>';
           order_data += '<td>' + emojizer(value.burritos,"b") +'</td>';
-          order_data += '<td>' +value.price_per_burrito+'</td>';
           order_data += '<td>' + emojizer(value.tacos,"t") +'</td>';
-          order_data += '<td>' +value.price_per_taco+'</td>';
           order_data += '<td>' +value.order_total+'</td>';
           order_data += '<td>' + emojizer(value.order_complete,"c") +'</td>';
           order_data += '<tr>';

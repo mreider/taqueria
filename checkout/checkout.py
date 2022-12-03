@@ -1,10 +1,15 @@
 from opentelemetry import metrics as metrics
+from opentelemetry import trace as OpenTelemetry
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.sdk.metrics.export import (AggregationTemporality,PeriodicExportingMetricReader,)
 from opentelemetry.sdk.metrics import Counter, MeterProvider
 from opentelemetry.metrics import set_meter_provider, get_meter_provider
-from flask import Flask, render_template, url_for, request
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import (OTLPSpanExporter,)
+from opentelemetry.sdk.trace import TracerProvider, sampling
+from opentelemetry.sdk.trace.export import (BatchSpanProcessor,)
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+from flask import Flask, request
 from redis import Redis
 import os
 import uuid
@@ -30,6 +35,7 @@ merged.update({
     "service.version": "1.0.1",
 })
 
+
 token_string = "Api-Token " + os.environ['dt_token']
 
 exporter = OTLPMetricExporter(
@@ -47,6 +53,14 @@ counter = meter.create_counter(
   description="How much money are we making?"
 )
 
+tracer_provider = TracerProvider(sampler=sampling.ALWAYS_ON, resource=resource)
+OpenTelemetry.set_tracer_provider(tracer_provider)
+
+tracer_provider.add_span_processor(
+    BatchSpanProcessor(OTLPSpanExporter(
+        endpoint=os.environ["dt_traces_endpoint"],
+        headers={ "Authorization": token_string}
+    )))
 
 
 # and here our otel code ends #
@@ -60,6 +74,7 @@ if os.environ["app"] == "k8s":
     redis_url = "redis"
 
 app = Flask(__name__)
+tracer = OpenTelemetry.get_tracer(__name__)
 conn = Redis(host=redis_url)
 
 def format_currency(num):
@@ -73,19 +88,33 @@ def submit_order(order_number, pickled_order):
     conn.set(order_number, pickled_order)
     return True
 
-def deliver_order(order,details):
+def deliver_order(order):
     # make this asyncronous at some point using asyncio
     # that way we can have undelivered vs. delivered orders
     # deliver is handled at the delivery service
-    order_json = json.dumps(order)
-    resp = requests.post(url=delivery_url, json=order_json)
-    # and now we're going to send some otel metrics.
-    attributes = { "country": details.country_name , "city": details.city } #TODO Replace with your own attributes
-    counter.add( float(order['order_total'][1:]), attributes)
-    return True
+    with tracer.start_as_current_span("checkout.py/deliver_order") as span:
+        span.set_attribute("city", "portland")
+        carrier = {}
+        TraceContextTextMapPropagator().inject(carrier)
+        header = {"traceparent": carrier["traceparent"]}
+        order_json = json.dumps(order)
+        resp = requests.post(url=delivery_url, json=order_json, headers=header)
+        # and now we're going to send some otel metrics.
+        attributes = { "city": "portland" }
+        counter.add( float(order['order_total'][1:]), attributes)
+        return True
 
 @app.route('/')
 def home():
+    ### Otel things ###
+    ###################
+
+    traceparent = request.headers.get_all("traceparent")
+    carrier = {"traceparent": traceparent}
+    ctx = TraceContextTextMapPropagator().extract(carrier)
+    with tracer.start_as_current_span("checkout.py/", context=ctx) as span:
+        span.set_attribute("city", "portland")
+
     order_number = str(uuid.uuid4().hex)
     number_of_burritos = random.randint(0, 6)
     number_of_tacos = random.randint(0, 10)
@@ -102,11 +131,7 @@ def home():
     }
     pickled_order = pickle.dumps(order)
     submit_order(order_number, pickled_order)
-    details = {}
-    details['country'] = "United States"
-    details['city'] = random.choice("San Francisco","Los Angeles")
-
-    deliver_order(order,details)
+    deliver_order(order)
     return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
 
 if __name__ == '__main__':

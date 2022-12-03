@@ -4,8 +4,6 @@ Order tacos 🌮 or burritos 🌯 & send OTLP signals to Dynatrace.
 
 This app is written in Python 🐍.
 
-![ordering food](taqueria.gif)
-
 ## Transaction flow
 
 ```
@@ -57,7 +55,9 @@ There are three microservices, each in their own subdirectory.
 
 - python 3.6+
 - redis
-- a Dynatrace data ingest token (Data ingest, e.g.: metrics and events)
+- a Dynatrace token
+    - Data ingest, e.g.: metrics and events (DataImport)
+    - Ingest OpenTelemetry traces  (openTelemetryTrace.ingest)
 
 Mac users can run `./install-local.sh` to install redis run pip install for each microservice.
 
@@ -79,13 +79,13 @@ Works as of December 2022. Who knows if they still work today 😥?
 - An API access token with these scopes:
     - Access problem event feed, metrics, and topology (DataExport)
     - PaaS integration - Installer download (InstallerDownload)
-    - Create ActiveGate tokens1 (activeGateTokenManagement.create)
+    - Create ActiveGate tokens (activeGateTokenManagement.create)
     - Read entities (entities.read)
-    - Read settings2 (settings.read)
-    - Write settings2 (settings.write)
+    - Read settings (settings.read)
+    - Write settings (settings.write)
 - A data ingest token 
     - Data ingest, e.g.: metrics and events (DataImport)
-    - Ingest OpenTelemetry traces  (openTelemetryTrace.ingest)
+    - Ingest OpenTelemetry traces (openTelemetryTrace.ingest)
 
 
 #### Install the Dynatrace Operator in Cloud Native mode
@@ -193,6 +193,11 @@ kubectl apply -f taqueria.yaml -n taqueria
 ```
 kubectl describe services frontend -n taqueria
 ```
+
+#### Browse and order some tacos
+
+![ordering food](taqueria.gif)
+
 
 ## Questions?
 

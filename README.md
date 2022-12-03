@@ -67,8 +67,27 @@ Mac users can run `./install-local.sh` to install redis run pip install for each
 export app=local
 export dt_url='https://(your dynatrace endpoint)/api/v2/otlp/v1/metrics'
 export dt_metrics_endpoint: "https://(your dyntrace environment)/api/v2/otlp/v1/metrics"
-exprot dt_traces_endpoint: "https://(your dynatrace environemtn)/api/v2/otlp/v1/traces"
+export dt_traces_endpoint: "https://(your dynatrace environemtn)/api/v2/otlp/v1/traces"
 ```
+
+### Starting the application
+
+This only works on a mac with Redis installed via Homebrew
+
+```
+./start.sh
+```
+
+Browse the frontend on `http://127.0.0.1:5001`
+
+### Stopping the application
+
+Also only works on a mac with Redis installed via Homebrew
+
+```
+./stop.sh
+```
+
 
 ## Running in Kubernetes
 

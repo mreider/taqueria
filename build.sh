@@ -10,6 +10,10 @@ cd ../delivery
 docker build -t taqueria-delivery .
 docker image tag taqueria-delivery  mreider/taqueria-delivery:latest
 docker image push mreider/taqueria-delivery:latest
+cd ../scheduler
+docker build -t taqueria-scheduler .
+docker tag taqueria-scheduler mreider/taqueria-scheduler:latest
+docker push mreider/taqueria-scheduler:latest
 cd ../redis
 docker build -t taqueria-redis .
 docker tag taqueria-redis mreider/taqueria-redis:latest

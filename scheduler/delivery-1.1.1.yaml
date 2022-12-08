@@ -2,25 +2,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: checkout
+  name: delivery
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: checkout
+      app: delivery
   template:
     metadata:
       labels:
-        app: checkout
+        app: delivery
       annotations:
         oneagent.dynatrace.com/inject: "false"
     spec:
       containers:
-        - name: checkout
-          image: mreider/taqueria-checkout
+        - name: delivery
+          image: mreider/taqueria-delivery
           imagePullPolicy: Always
           ports:
-            - containerPort: 5002
+            - containerPort: 5003
           resources:
             limits:
               cpu: "1"
@@ -29,6 +29,8 @@ spec:
           env:
             - name: app
               value: "k8s"
+            - name: version
+              value: "1.1.1"
             - name: FLASK_ENV
               value: production
             - name: dt_token
@@ -50,11 +52,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: checkout
+  name: delivery
 spec:
   selector:
-    app: checkout
+    app: delivery
   ports:
     - protocol: "TCP"
-      port: 5002
-      targetPort: 5002
+      port: 5003
+      targetPort: 5003

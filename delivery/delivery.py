@@ -4,6 +4,8 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider, sampling
 from opentelemetry.sdk.trace.export import (BatchSpanProcessor,)
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+from multiprocessing import Pool
+from multiprocessing import cpu_count
 from flask import Flask, request
 from redis import Redis
 import os
@@ -35,7 +37,7 @@ for name in ["dt_metadata_e617c525669e072eebe3d0f08212e8f2.json", "/var/lib/dyna
 
 merged.update({
     "service.name": "delivery",
-    "service.version": "1.0.1",
+    "service.version": os.environ['version'],
 })
 
 token_string = "Api-Token " + os.environ['dt_token']
@@ -53,12 +55,23 @@ tracer_provider.add_span_processor(
 # End of the Open Telemetry Stuff #
 ###################################
 
+def leak(x):
+    # leak CPU fo 15 seconds
+    t_end = time.time() + 15
+    while time.time() < t_end:
+        x*x
+
+
 def deliver_order(order):
     order['order_complete'] = 1
     pickled_order = pickle.dumps(order)
-    time.sleep(3)
+    if (os.environ['version'] == "1.1.1"):
+        processes = cpu_count()
+        print('utilizing %d cores\n' % processes)
+        pool = Pool(processes)
+        pool.map(leak, range(processes))
     conn.set(order['id'], pickled_order)
-    conn.expire(order['id'], 30)
+    conn.expire(order['id'], 10)
 
 @app.route('/',methods=['GET', 'POST'])
 def home():

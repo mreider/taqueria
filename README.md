@@ -65,6 +65,7 @@ Mac users can run `./install-local.sh` to install redis run pip install for each
 
 ```
 export app=local
+export version="1.0.1"
 export dt_url='https://(your dynatrace endpoint)/api/v2/otlp/v1/metrics'
 export dt_metrics_endpoint="https://(your dyntrace environment)/api/v2/otlp/v1/metrics"
 export dt_traces_endpoint= "https://(your dynatrace environemtn)/api/v2/otlp/v1/traces"
@@ -217,6 +218,9 @@ kubectl describe services frontend -n taqueria
 
 ![ordering food](taqueria.gif)
 
+### Load generation and CPU leaks
+
+The `scheduler` workload generates load by ordering tacos and burritos every 7 seconds. It also creates a CPU leak every hour at :30 past the hour. The leak ends at :34 past the hour. This CPU leak is created by patching the `delivery` workload with environment variable version=1.1.1, which creates a CPU leak. Afterwards, it re-patches the variable back to 1.0.1, which removes the leak. 
 
 ## Questions?
 

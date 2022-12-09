@@ -1,6 +1,11 @@
+from opentelemetry import metrics as metrics
 from opentelemetry import trace as OpenTelemetry
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import (OTLPSpanExporter,)
 from opentelemetry.sdk.resources import Resource
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+from opentelemetry.sdk.metrics.export import (AggregationTemporality,PeriodicExportingMetricReader,)
+from opentelemetry.sdk.metrics import Counter, MeterProvider
+from opentelemetry.metrics import set_meter_provider, get_meter_provider
 from opentelemetry.sdk.trace import TracerProvider, sampling
 from opentelemetry.sdk.trace.export import (BatchSpanProcessor,)
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
@@ -42,6 +47,19 @@ merged.update({
 
 token_string = "Api-Token " + os.environ['dt_token']
 resource = Resource.create(merged)
+reader = PeriodicExportingMetricReader(exporter) 
+provider = MeterProvider(metric_readers=[reader], resource=resource)
+set_meter_provider(provider)
+meter = get_meter_provider().get_meter("sales-meter", "0.1.2")
+counter = meter.create_counter(
+  name="sales-counter",
+  description="How much money are we making?"
+)
+
+exporter = OTLPMetricExporter(
+    endpoint=os.environ["dt_metrics_endpoint"],
+    headers = {"Authorization": token_string },
+    preferred_temporality={Counter: AggregationTemporality.DELTA})
 
 tracer_provider = TracerProvider(sampler=sampling.ALWAYS_ON, resource=resource)
 OpenTelemetry.set_tracer_provider(tracer_provider)
@@ -72,6 +90,9 @@ def deliver_order(order):
         pool.map(leak, range(processes))
     conn.set(order['id'], pickled_order)
     conn.expire(order['id'], 10)
+    attributes = { "city": "portland" }
+    counter.add( float(order['order_total'][1:]), attributes)
+    return True
 
 @app.route('/',methods=['GET', 'POST'])
 def home():

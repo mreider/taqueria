@@ -1,0 +1,25 @@
+name: custom:com.ua.example.extension
+version: 1.0.2
+minDynatraceVersion: 1.257.0
+author:
+  name: Matthew Reider
+screens:
+  - entityType: CLOUD_APPLICATION
+    detailsInjections:
+      - type: CHART_GROUP
+        key: sales-counter
+        conditions:
+          - entityAttribute|entityName=delivery
+    chartsCards:
+      - key: sales-counter
+        displayName: Sales Counter
+        numberOfVisibleCharts: 1
+        charts:
+          - displayName: sales-counter
+            visualizationType: GRAPH_CHART
+            graphChartConfig:
+              visualization:
+                themeColor: DEFAULT
+                seriesType: LINE
+              metrics:
+                - metricSelector: sales-counter.count

@@ -1,10 +1,5 @@
-from opentelemetry import metrics as metrics
 from opentelemetry import trace as OpenTelemetry
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
-from opentelemetry.sdk.metrics.export import (AggregationTemporality,PeriodicExportingMetricReader,)
-from opentelemetry.sdk.metrics import Counter, MeterProvider
-from opentelemetry.metrics import set_meter_provider, get_meter_provider
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import (OTLPSpanExporter,)
 from opentelemetry.sdk.trace import TracerProvider, sampling
 from opentelemetry.sdk.trace.export import (BatchSpanProcessor,)
@@ -17,7 +12,6 @@ import json
 import requests
 import random
 import pickle
-
 
 ###############################
 # here's a bunch of otel code #
@@ -35,23 +29,9 @@ merged.update({
     "service.version": "1.0.1",
 })
 
-
 token_string = "Api-Token " + os.environ['dt_token']
 
-exporter = OTLPMetricExporter(
-    endpoint=os.environ["dt_metrics_endpoint"],
-    headers = {"Authorization": token_string },
-    preferred_temporality={Counter: AggregationTemporality.DELTA})
-
 resource = Resource.create(merged)
-reader = PeriodicExportingMetricReader(exporter) 
-provider = MeterProvider(metric_readers=[reader], resource=resource)
-set_meter_provider(provider)
-meter = get_meter_provider().get_meter("sales-meter", "0.1.2")
-counter = meter.create_counter(
-  name="sales-counter",
-  description="How much money are we making?"
-)
 
 tracer_provider = TracerProvider(sampler=sampling.ALWAYS_ON, resource=resource)
 OpenTelemetry.set_tracer_provider(tracer_provider)

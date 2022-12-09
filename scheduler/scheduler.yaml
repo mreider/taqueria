@@ -1,31 +1,30 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: job-robot
+  name: taqueria
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
-apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   namespace: taqueria
   name: taqueria
 rules:
-- apiGroups: [""]
-  resources: ["deployments","pods"]
-  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: job-robot
+  name: taqueria
   namespace: taqueria
 subjects:
 - kind: ServiceAccount
-  name: job-robot
+  name: taqueria
   namespace: taqueria
 roleRef:
   kind: Role
-  name: job-robot 
+  name: taqueria
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: apps/v1
@@ -52,4 +51,4 @@ spec:
               cpu: "1"
             requests:
               cpu: "0.5"
-      serviceAccountName: job-robot
+      serviceAccountName: taqueria

@@ -1,5 +1,5 @@
-name: custom:com.ua.example.extension
-version: 1.0.2
+name: custom:taqueria-sales-counter
+version: 1.0.16
 minDynatraceVersion: 1.257.0
 author:
   name: Matthew Reider
@@ -7,19 +7,27 @@ screens:
   - entityType: CLOUD_APPLICATION
     detailsInjections:
       - type: CHART_GROUP
-        key: sales-counter
+        key: orders
         conditions:
           - entityAttribute|entityName=delivery
     chartsCards:
-      - key: sales-counter
-        displayName: Sales Counter
-        numberOfVisibleCharts: 1
+      - key: orders
+        displayName: orders
+        numberOfVisibleCharts: 2
         charts:
-          - displayName: sales-counter
+          - displayName: sales-billed
             visualizationType: GRAPH_CHART
             graphChartConfig:
               visualization:
                 themeColor: DEFAULT
                 seriesType: LINE
               metrics:
-                - metricSelector: sales-counter.count
+                - metricSelector: sales-billed.count:splitBy("dt.entity.cloud_application")
+          - displayName: orders-fulfilled
+            visualizationType: GRAPH_CHART
+            graphChartConfig:
+              visualization:
+                themeColor: DEFAULT
+                seriesType: LINE
+              metrics:
+                - metricSelector: orders-fulfilled.count:splitBy("dt.entity.cloud_application")

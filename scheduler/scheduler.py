@@ -59,7 +59,13 @@ def do_constantly():
     resp = requests.get(url="http://frontend-internal:5001/checkout")
     print(resp.status_code)
 
+def do_on_the_hour():
+    k8s_apps_v1 = client.AppsV1Api()
+    resp = k8s_apps_v1.delete_namespaced_pod(name="redis", namespace="taqueria")
+    print(resp)
+
 schedule.every().hour.at(":30").do(do_at_half_past)
+schedule.every().hour.at(":01").do(do_on_the_hour)
 schedule.every().hour.at(":34").do(do_four_minutes_later)
 schedule.every(7).seconds.do(do_constantly)
 

@@ -1,14 +1,15 @@
 from opentelemetry import metrics as metrics
-from opentelemetry import trace as OpenTelemetry
+from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import (OTLPSpanExporter,)
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
 from opentelemetry.sdk.resources import Resource
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.sdk.metrics.export import (AggregationTemporality,PeriodicExportingMetricReader,)
 from opentelemetry.sdk.metrics import Counter, MeterProvider
 from opentelemetry.metrics import set_meter_provider, get_meter_provider
-from opentelemetry.sdk.trace import TracerProvider, sampling
+from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import (BatchSpanProcessor,)
-from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from multiprocessing import Pool
 from multiprocessing import cpu_count
 from flask import Flask, request
@@ -18,14 +19,6 @@ import json
 import time
 import pickle
 
-if os.environ["app"] == "local":
-    redis_url = "127.0.0.1"
-if os.environ["app"] == "k8s":
-    redis_url = "redis"
-
-app = Flask(__name__)
-tracer = OpenTelemetry.get_tracer(__name__)
-conn = Redis(host=redis_url)
 
 ##################################
 #     Open Telemetry Stuff       #
@@ -44,34 +37,45 @@ merged.update({
     "service.name": "delivery",
     "service.version": os.environ['version'],
 })
-
 token_string = "Api-Token " + os.environ['dt_token']
-resource = Resource.create(merged)
-reader = PeriodicExportingMetricReader(exporter) 
-provider = MeterProvider(metric_readers=[reader], resource=resource)
-set_meter_provider(provider)
-meter = get_meter_provider().get_meter("sales-meter", "0.1.2")
-counter = meter.create_counter(
-  name="sales-counter",
-  description="How much money are we making?"
-)
-
 exporter = OTLPMetricExporter(
     endpoint=os.environ["dt_metrics_endpoint"],
     headers = {"Authorization": token_string },
     preferred_temporality={Counter: AggregationTemporality.DELTA})
+resource = Resource.create(merged)
+reader = PeriodicExportingMetricReader(exporter) 
+provider = MeterProvider(metric_readers=[reader], resource=resource)
+set_meter_provider(provider)
+meter = get_meter_provider().get_meter("taqueria-meter", "0.1.2")
+sales_billed = meter.create_counter(
+  name="sales-billed",
+  description="How much $ did we bill?"
+)
+orders_fulfilled = meter.create_counter(
+  name="orders-fulfilled",
+  description="How many orders were fulfilled?"
+)
 
-tracer_provider = TracerProvider(sampler=sampling.ALWAYS_ON, resource=resource)
-OpenTelemetry.set_tracer_provider(tracer_provider)
 
-tracer_provider.add_span_processor(
-    BatchSpanProcessor(OTLPSpanExporter(
-        endpoint=os.environ["dt_traces_endpoint"],
-        headers={"Authorization": token_string},
-    )))
+tracer_provider = TracerProvider(resource=resource)
+span_processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=os.environ["dt_traces_endpoint"],headers={ "Authorization": token_string}))
+tracer_provider.add_span_processor(span_processor)
+RequestsInstrumentor().instrument()
+trace.set_tracer_provider(tracer_provider)
+
 
 # End of the Open Telemetry Stuff #
 ###################################
+
+
+if os.environ["app"] == "local":
+    redis_url = "127.0.0.1"
+if os.environ["app"] == "k8s":
+    redis_url = "redis"
+
+app = Flask(__name__)
+FlaskInstrumentor().instrument_app(app)
+conn = Redis(host=redis_url)
 
 def leak(x):
     # leak CPU fo 15 seconds
@@ -91,34 +95,25 @@ def deliver_order(order):
     conn.set(order['id'], pickled_order)
     conn.expire(order['id'], 10)
     attributes = { "city": "portland" }
-    counter.add( float(order['order_total'][1:]), attributes)
+    sales_billed.add( float(order['order_total'][1:]), attributes)
+    orders_fulfilled.add(1, attributes)
     return True
 
 @app.route('/',methods=['GET', 'POST'])
 def home():
-    traceparent = request.headers.get_all("traceparent")
-    carrier = {"traceparent": traceparent}
-    ctx = TraceContextTextMapPropagator().extract(carrier)
-    with tracer.start_as_current_span("delivery.py/", context=ctx) as span:
-        span.set_attribute("city", "portland")
-        order = json.loads(request.json)
-        deliver_order(order)
-        return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
+    order = json.loads(request.json)
+    deliver_order(order)
+    return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
 
 @app.route('/orders',methods=['GET', 'POST'])
 def orders():
-    traceparent = request.headers.get_all("traceparent")
-    carrier = {"traceparent": traceparent}
-    ctx = TraceContextTextMapPropagator().extract(carrier)
-    with tracer.start_as_current_span("delivery.py/orders", context=ctx) as span:
-        span.set_attribute("city", "portland")
-        active_orders = {}
-        key_list = conn.keys()
-        active_orders['total_orders'] = len(key_list)
-        active_orders['orders'] = []
-        for k in key_list:
-            active_orders['orders'].append(pickle.loads(conn.get(k)))
-        return json.dumps(active_orders), 200, {'ContentType':'application/json'} 
+    active_orders = {}
+    key_list = conn.keys()
+    active_orders['total_orders'] = len(key_list)
+    active_orders['orders'] = []
+    for k in key_list:
+        active_orders['orders'].append(pickle.loads(conn.get(k)))
+    return json.dumps(active_orders), 200, {'ContentType':'application/json'} 
 
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0', port=5003)

@@ -1,7 +1,9 @@
-from opentelemetry import trace as OpenTelemetry
+from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import (OTLPSpanExporter,)
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider, sampling
+from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import (BatchSpanProcessor,)
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from flask import Flask, render_template, request
@@ -31,18 +33,14 @@ merged.update({
 token_string = "Api-Token " + os.environ['dt_token']
 resource = Resource.create(merged)
 
-tracer_provider = TracerProvider(sampler=sampling.ALWAYS_ON, resource=resource)
-OpenTelemetry.set_tracer_provider(tracer_provider)
-
-tracer_provider.add_span_processor(
-    BatchSpanProcessor(OTLPSpanExporter(
-        endpoint=os.environ["dt_traces_endpoint"],
-        headers={"Authorization": token_string},
-    )))
+tracer_provider = TracerProvider(resource=resource)
+span_processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=os.environ["dt_traces_endpoint"],headers={ "Authorization": token_string}))
+tracer_provider.add_span_processor(span_processor)
+RequestsInstrumentor().instrument()
+trace.set_tracer_provider(tracer_provider)
 
 # End of the Open Telemetry Stuff #
 ###################################
-
 
 
 if os.environ["app"] == "local":
@@ -53,47 +51,26 @@ if os.environ["app"] == "k8s":
     delivery_url = "http://delivery:5003"
 
 app = Flask(__name__, static_url_path='/static')
-tracer = OpenTelemetry.get_tracer(__name__)
+FlaskInstrumentor().instrument_app(app)
 
 @app.route('/')
 def home():
     rum_code = os.environ["rum_code"]
-    traceparent = request.headers.get_all("traceparent")
-    carrier = {"traceparent": traceparent}
-    ctx = TraceContextTextMapPropagator().extract(carrier)
-    with tracer.start_as_current_span("frontend.py/", context=ctx) as span:
-        span.set_attribute("city", "portland")
-        return render_template('index.html',rum_code=rum_code)
+    return render_template('index.html',rum_code=rum_code)
 
 @app.route('/orders')
 def deliveries():
-    traceparent = request.headers.get_all("traceparent")
-    carrier = {"traceparent": traceparent}
-    ctx = TraceContextTextMapPropagator().extract(carrier)
     delivery_url_full = delivery_url + "/orders"
-    with tracer.start_as_current_span("frontend.py/orders", context=ctx) as span:
-        span.set_attribute("city", "portland")
-        carrier = {}
-        TraceContextTextMapPropagator().inject(carrier)
-        header = {"traceparent": carrier["traceparent"]}
-        resp = requests.get(url=delivery_url_full, headers=header)
-        if resp.content.decode("utf-8") == "{}":
-            return json.dumps({"info":"no orders placed"}), 200, {'ContentType':'application/json'} 
-        else:
-            return json.dumps(resp.content.decode("utf-8")), 200, {'ContentType':'application/json'} 
+    resp = requests.get(url=delivery_url_full)
+    if resp.content.decode("utf-8") == "{}":
+        return json.dumps({"info":"no orders placed"}), 200, {'ContentType':'application/json'} 
+    else:
+        return json.dumps(resp.content.decode("utf-8")), 200, {'ContentType':'application/json'} 
 
 @app.route('/checkout')
 def checkout():
-    traceparent = request.headers.get_all("traceparent")
-    carrier = {"traceparent": traceparent}
-    ctx = TraceContextTextMapPropagator().extract(carrier)
-    with tracer.start_as_current_span("frontend.py/checkout", context=ctx) as span:
-        span.set_attribute("city", "portland")
-        carrier = {}
-        TraceContextTextMapPropagator().inject(carrier)
-        header = {"traceparent": carrier["traceparent"]}
-        resp = requests.get(url=checkout_url, headers=header)
-        return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
+    resp = requests.get(url=checkout_url)
+    return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
 
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0', port=5001)

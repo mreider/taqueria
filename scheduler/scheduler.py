@@ -59,13 +59,20 @@ def do_constantly():
     resp = requests.get(url="http://frontend-internal:5001/checkout")
     print(resp.status_code)
 
-def do_on_the_hour():
-    k8s_apps_v1 = client.AppsV1Api()
-    resp = k8s_apps_v1.delete_namespaced_pod(name="redis", namespace="taqueria")
-    print(resp)
+#def do_on_the_hour():
+# We used to delete the redis pod once an hour
+# to clean it up, but now we just expire the
+# undelivered orders.
+#    v1 = client.CoreV1Api()
+#    ret = v1.list_namespaced_pod("taqueria")
+#    for i in ret.items:
+#        pod_name = i.metadata.name
+#        if("redis" in pod_name):
+#            v1.delete_namespaced_pod(pod_name, "taqueria")
+#            print("deleted" + i.metadata.name)
 
 schedule.every().hour.at(":30").do(do_at_half_past)
-schedule.every().hour.at(":01").do(do_on_the_hour)
+#schedule.every().hour.at(":01").do(do_on_the_hour) # see above comments.
 schedule.every().hour.at(":34").do(do_four_minutes_later)
 schedule.every(7).seconds.do(do_constantly)
 

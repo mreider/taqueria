@@ -2,24 +2,22 @@
 <html>
 <head>
 <title>Taqueria</title>
-  <script src="http://code.jquery.com/jquery-latest.js"></script>
-  <script src= "https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" />
-  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
   {{rum_code|safe}}
+  <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.1.0/css/font-awesome.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/static/loader.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
   <div id="loader"></div>
   <div class="container"><br />
-    <progress value="0" max="10" id="progressBar"></progress><br /><br />
-    <input id = "order" type="submit" value=" order 👝"/><br /><br />
-    <div class="table-responsive" id="order_table">
-    </div>
-  </div>
-  <script>
-    $(document).ready(function(){
-      function emojizer(num,type) {
+    <button class="btn btn-4 btn-sep icon-send" id="order">Order</button>
+    <br><br>
+    <div id="order_table">
+</div>
+</div>
+<script>
+  document.addEventListener("DOMContentLoaded", function(event) { 
+    function emojizer(num,type) {
         emojis = ""
         if (num == 0) {emojis = "❌";}
         for (let index = 0; index < num; ++index) { 
@@ -39,49 +37,111 @@
         }
       return emojis
     }
+    var Loader = {
+        loader: null,
+        body: null,
+        html: '<span><svg width="40" height="40" version="1.1" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="15"></svg></span>',
+        cssClass: "loader",
+        check: function () {
+          if (this.body == null) {
+            this.body = document.body;
+          }
+        },
+        open: function () {
+          this.check();
+          if (!this.isOpen()) {
+            this.loader = document.createElement("div");
+            this.loader.setAttribute("id", "loader");
+            this.loader.classList.add("loader_website");
+            this.loader.innerHTML = this.html;
+            this.body.append(this.loader);
+            this.body.classList.add(this.cssClass);
+          }
+          return this;
+        },
+        close: function () {
+          this.check();
+          if (this.isOpen()) {
+            this.body.classList.remove(this.cssClass);
+            this.loader.remove();
+          }
+          return this;
+        },
+        isOpen: function () {
+          this.check();
+          return this.body.classList.contains(this.cssClass);
+        },
+        ifOpened: function (callback, close) {
+          this.check();
+          if (this.isOpen()) {
+            if (!!close) this.close();
+            if (typeof callback === "function") {
+              callback();
+            }
+          }
+          return this;
+        },
+        ifClosed: function (callback, open) {
+          this.check();
+          if (!this.isOpen()) {
+            if (!!open) this.open();
+            if (typeof callback === "function") {
+              callback();
+            }
+          }
+          return this;
+        },
+    };
 
     function load_orders(){
-      return $.getJSON("/orders").then(function(data){
-        parsed = jQuery.parseJSON(data);
-        var order_data ='<table class="table table-bordered table-striped"> \
-        <tr> \
-          <th>Burritos</th> \
-          <th>Tacos</th> \
-          <th>Order Total</th> \
-          <th>Delivered</th> \
-        </tr>';
-        $.each(parsed.orders, function(key, value){
-          order_data += '<tr>';
-          order_data += '<td>' + emojizer(value.burritos,"b") +'</td>';
-          order_data += '<td>' + emojizer(value.tacos,"t") +'</td>';
-          order_data += '<td>' +value.order_total+'</td>';
-          order_data += '<td>' + emojizer(value.order_complete,"c") +'</td>';
-          order_data += '<tr>';
-      });
-      order_data += "</table>";
-      $('#order_table').html(order_data);
-    });
-    }
-  
-    $("#order").click(function(){
-      $('#loader').show();
-        $.get( "/checkout", function( data ) {
-          load_orders().then(function(returndata){
-            $('#loader').hide();
-          });
-    });
-    });
-    load_orders();
-    var timeleft = 10;
-    var downloadTimer = setInterval(function(){
-      if(timeleft <= 0){
-        clearInterval(downloadTimer);
-        location.reload();
+      currentDiv = document.getElementById("order_table");
+      let table = document.createElement('table');
+      table.classList.add('table');
+      currentDiv.appendChild(table);
+      let header_row = document.createElement('tr');
+      let header_cell1 = document.createElement('th');
+      let header_cell2 = document.createElement('th');
+      let header_cell3 = document.createElement('th');
+      let header_cell4 = document.createElement('th');
+      header_cell1.innerHTML = "Burritos";
+      header_cell2.innerHTML = "Tacos";
+      header_cell3.innerHTML = "Order Total";
+      header_cell4.innerHTML = "Delivered";
+      header_row.appendChild(header_cell1);
+      header_row.appendChild(header_cell2);
+      header_row.appendChild(header_cell3);
+      header_row.appendChild(header_cell4);
+      table.appendChild(header_row)
+      fetch("/orders")
+      .then(response => response.json())
+      .then( data => {
+        for (const order of JSON.parse(data)) {
+          console.log("my object: %o", order)
+          let data_row = document.createElement('tr');
+          let data_cell1 = document.createElement('td');
+          let data_cell2 = document.createElement('td');
+          let data_cell3 = document.createElement('td');
+          let data_cell4 = document.createElement('td');
+          data_cell1.innerHTML = emojizer(order.burritos,"b")
+          data_cell2.innerHTML = emojizer(order.tacos,"t")
+          data_cell3.innerHTML = order.order_total
+          data_cell4.innerHTML = emojizer(order.order_complete,"c")
+          data_row.appendChild(data_cell1);
+          data_row.appendChild(data_cell2);
+          data_row.appendChild(data_cell3);
+          data_row.appendChild(data_cell4);
+          table.appendChild(data_row);
+        }
+        });
+      Loader.close();
       }
-      document.getElementById("progressBar").value = 10 - timeleft;
-      timeleft -= 1;
-    }, 1000);
-  });
+      document.getElementById('order').onclick=function(){
+      Loader.open();
+      load_orders();
+    }
+    Loader.open();
+    load_orders();
+    });
     </script>
 </body>
 </html>

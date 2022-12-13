@@ -19,6 +19,7 @@ import requests
 import random
 import pickle
 
+
 ###############################
 # here's a bunch of otel code #
 merged = dict()
@@ -85,6 +86,7 @@ def format_currency(num):
 def submit_order(order_number, pickled_order):
     # this checkout service submits orders to redis
     conn.set(order_number, pickled_order)
+    conn.expire(order_number, 100)
     return True
 
 def deliver_order(order):

@@ -107,12 +107,10 @@ def home():
 
 @app.route('/orders',methods=['GET', 'POST'])
 def orders():
-    active_orders = {}
+    active_orders = []
     key_list = conn.keys()
-    active_orders['total_orders'] = len(key_list)
-    active_orders['orders'] = []
     for k in key_list:
-        active_orders['orders'].append(pickle.loads(conn.get(k)))
+        active_orders.append(pickle.loads(conn.get(k)))
     return json.dumps(active_orders), 200, {'ContentType':'application/json'} 
 
 if __name__ == '__main__':

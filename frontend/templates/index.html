@@ -3,20 +3,41 @@
 <head>
 <title>Taqueria</title>
   {{rum_code|safe}}
-  <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.1.0/css/font-awesome.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/skeleton.css" />
+  <link rel="stylesheet" href="/static/normalize.css" />
   <link rel="stylesheet" href="/static/loader.css" />
+  <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
   <div id="loader"></div>
   <div class="container"><br />
-    <button class="btn btn-4 btn-sep icon-send" id="order">Order</button>
-    <br><br>
+    <button id="order" class="button button-primary">Order 🌯</button>
+    <br>
     <div id="order_table">
-</div>
+
+    </div>
 </div>
 <script>
   document.addEventListener("DOMContentLoaded", function(event) { 
+    
+    function checkout(){
+      Loader.open();
+      fetch('/checkout', {
+        method: 'GET',
+        headers: {
+        'Accept': 'application/json',
+          },
+      })
+      .then(response => response.text())
+      .then(text => {
+        console.log(text);
+        load_orders();
+        Loader.close();
+        }
+      )
+    }
+
     function emojizer(num,type) {
         emojis = ""
         if (num == 0) {emojis = "❌";}
@@ -92,12 +113,12 @@
           return this;
         },
     };
-
-    function load_orders(){
+    function setup_table(){
       currentDiv = document.getElementById("order_table");
       let table = document.createElement('table');
-      table.classList.add('table');
+      table.classList.add('u-full-width');
       currentDiv.appendChild(table);
+      let header = document.createElement('thead');
       let header_row = document.createElement('tr');
       let header_cell1 = document.createElement('th');
       let header_cell2 = document.createElement('th');
@@ -105,16 +126,25 @@
       let header_cell4 = document.createElement('th');
       header_cell1.innerHTML = "Burritos";
       header_cell2.innerHTML = "Tacos";
-      header_cell3.innerHTML = "Order Total";
+      header_cell3.innerHTML = "Total";
       header_cell4.innerHTML = "Delivered";
+      header.appendChild(header_row);
       header_row.appendChild(header_cell1);
       header_row.appendChild(header_cell2);
       header_row.appendChild(header_cell3);
       header_row.appendChild(header_cell4);
-      table.appendChild(header_row)
+      table.appendChild(header)
+      let data_body = document.createElement('tbody');
+      data_body.setAttribute('id','table-body');
+      table.appendChild(data_body);
+    }
+
+    function load_orders(data_body){
       fetch("/orders")
       .then(response => response.json())
       .then( data => {
+        data_new = document.getElementById('table-body');
+        data_new.innerHTML = "";
         for (const order of JSON.parse(data)) {
           console.log("my object: %o", order)
           let data_row = document.createElement('tr');
@@ -127,20 +157,23 @@
           data_cell3.innerHTML = order.order_total
           data_cell4.innerHTML = emojizer(order.order_complete,"c")
           data_row.appendChild(data_cell1);
+          data_row.appendChild(data_cell1);
           data_row.appendChild(data_cell2);
           data_row.appendChild(data_cell3);
           data_row.appendChild(data_cell4);
-          table.appendChild(data_row);
+          data_new.appendChild(data_row);
         }
         });
       Loader.close();
       }
       document.getElementById('order').onclick=function(){
-      Loader.open();
-      load_orders();
+      checkout();
     }
-    Loader.open();
-    load_orders();
+    var data_body = setup_table();
+    checkout();
+    var intervalId = window.setInterval(function(){
+      checkout();
+    }, 7000);
     });
     </script>
 </body>

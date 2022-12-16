@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, request
 from opentelemetry import metrics as metrics
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
@@ -75,6 +75,8 @@ if os.environ["app"] == "k8s":
 
 app = Flask(__name__)
 FlaskInstrumentor().instrument_app(app)
+tracer = trace.get_tracer(__name__)
+
 conn = Redis(host=redis_url)
 
 def format_currency(num):
@@ -98,27 +100,32 @@ def deliver_order(order):
 
 @app.route('/')
 def home():
-    order_number = str(uuid.uuid4().hex)
-    number_of_burritos = random.randint(4, 6)
-    number_of_tacos = random.randint(5, 8)
-    price_per_burrito = 5.25
-    price_per_taco = 3.70
-    order = {
-        "id": order_number,
-        "burritos": number_of_burritos,
-        "tacos": number_of_tacos,
-        "price_per_burrito": format_currency(price_per_burrito),
-        "price_per_taco": format_currency(price_per_taco),
-        "order_total": format_currency((number_of_burritos * price_per_burrito) + (number_of_tacos * price_per_taco)),
-        "order_complete": 0
-    }
-    pickled_order = pickle.dumps(order)
-    attributes = { "city": "portland" }
-    sales_booked.add( float(order['order_total'][1:]), attributes)
-    orders_initiated.add(1, attributes)
-    submit_order(order_number, pickled_order)
-    deliver_order(order)
-    return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
+    with tracer.start_span("checkout") as span:
+        span.set_attribute("http.method", request.method)
+        span.set_attribute("http.url", request.url)
+        span.set_attribute("http.status_code", 200)
+        order_number = str(uuid.uuid4().hex)
+        number_of_burritos = random.randint(4, 6)
+        number_of_tacos = random.randint(5, 8)
+        price_per_burrito = 5.25
+        price_per_taco = 3.70
+        order = {
+            "id": order_number,
+            "burritos": number_of_burritos,
+            "tacos": number_of_tacos,
+            "price_per_burrito": format_currency(price_per_burrito),
+            "price_per_taco": format_currency(price_per_taco),
+            "order_total": format_currency((number_of_burritos * price_per_burrito) + (number_of_tacos * price_per_taco)),
+            "order_complete": 0
+        }
+        pickled_order = pickle.dumps(order)
+        attributes = { "city": "portland" }
+        sales_booked.add( float(order['order_total'][1:]), attributes)
+        orders_initiated.add(1, attributes)
+        submit_order(order_number, pickled_order)
+        deliver_order(order)
+        print(json.dumps(span.to_json(), indent=2))
+        return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
 
 if __name__ == '__main__':
-    app.run(debug=True,host='0.0.0.0', port=5002)
+    app.run(debug=False,host='0.0.0.0', port=5002)

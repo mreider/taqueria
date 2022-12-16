@@ -39,6 +39,7 @@ tracer_provider.add_span_processor(span_processor)
 RequestsInstrumentor().instrument()
 trace.set_tracer_provider(tracer_provider)
 
+
 # End of the Open Telemetry Stuff #
 ###################################
 
@@ -51,26 +52,42 @@ if os.environ["app"] == "k8s":
     delivery_url = "http://delivery:5003"
 
 app = Flask(__name__, static_url_path='/static')
+tracer = trace.get_tracer(__name__)
 FlaskInstrumentor().instrument_app(app)
 
 @app.route('/')
 def home():
-    rum_code = os.environ["rum_code"]
-    return render_template('index.html',rum_code=rum_code)
+    with tracer.start_span("frontend") as span:
+        span.set_attribute("http.method", request.method)
+        span.set_attribute("http.url", request.url)
+        span.set_attribute("http.status_code", 200)
+        rum_code = os.environ["rum_code"]
+        print(json.dumps(span.to_json(), indent=2))
+        return render_template('index.html',rum_code=rum_code)
 
 @app.route('/orders')
 def deliveries():
-    delivery_url_full = delivery_url + "/orders"
-    resp = requests.get(url=delivery_url_full)
-    if resp.content.decode("utf-8") == "{}":
-        return json.dumps({"info":"no orders placed"}), 200, {'ContentType':'application/json'} 
-    else:
-        return json.dumps(resp.content.decode("utf-8")), 200, {'ContentType':'application/json'} 
+    with tracer.start_span("order-list") as span:
+        span.set_attribute("http.method", request.method)
+        span.set_attribute("http.url", request.url)
+        span.set_attribute("http.status_code", 200)
+        delivery_url_full = delivery_url + "/orders"
+        resp = requests.get(url=delivery_url_full)
+        print(json.dumps(span.to_json(), indent=2))
+        if resp.content.decode("utf-8") == "{}":
+            return json.dumps({"info":"no orders placed"}), 200, {'ContentType':'application/json'} 
+        else:
+            return json.dumps(resp.content.decode("utf-8")), 200, {'ContentType':'application/json'} 
 
 @app.route('/checkout')
 def checkout():
-    resp = requests.get(url=checkout_url)
-    return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
+    with tracer.start_span("checkout") as span:
+        span.set_attribute("http.method", request.method)
+        span.set_attribute("http.url", request.url)
+        span.set_attribute("http.status_code", 200)
+        print(json.dumps(span.to_json(), indent=2))
+        requests.get(url=checkout_url)
+        return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
 
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0', port=5001)

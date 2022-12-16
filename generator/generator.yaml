@@ -30,21 +30,21 @@ roleRef:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: scheduler
+  name: generator
 spec:
   selector:
     matchLabels:
-      app: scheduler
+      app: generator
   template:
     metadata:
       labels:
-        app: scheduler
+        app: generator
       annotations:
         oneagent.dynatrace.com/inject: "false"
     spec:
       containers:
-        - name: scheduler
-          image: mreider/taqueria-scheduler
+        - name: generator
+          image: mreider/taqueria-generator
           imagePullPolicy: Always
           resources:
             limits:

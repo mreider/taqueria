@@ -8,4 +8,4 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-CMD ["python","scheduler.py"]
+CMD ["python","generator.py"]

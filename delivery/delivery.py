@@ -62,7 +62,7 @@ span_processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=os.environ["dt_tra
 tracer_provider.add_span_processor(span_processor)
 RequestsInstrumentor().instrument()
 trace.set_tracer_provider(tracer_provider)
-
+tracer = trace.get_tracer(__name__)
 
 # End of the Open Telemetry Stuff #
 ###################################
@@ -75,6 +75,7 @@ if os.environ["app"] == "k8s":
 
 app = Flask(__name__)
 FlaskInstrumentor().instrument_app(app)
+
 conn = Redis(host=redis_url)
 
 def leak(x):
@@ -82,7 +83,6 @@ def leak(x):
     t_end = time.time() + 15
     while time.time() < t_end:
         x*x
-
 
 def deliver_order(order):
     order['order_complete'] = 1
@@ -101,17 +101,27 @@ def deliver_order(order):
 
 @app.route('/',methods=['GET', 'POST'])
 def home():
-    order = json.loads(request.json)
-    deliver_order(order)
-    return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
+    with tracer.start_span("delivery") as span:
+        span.set_attribute("http.method", request.method)
+        span.set_attribute("http.url", request.url)
+        span.set_attribute("http.status_code", 200)
+        order = json.loads(request.json)
+        deliver_order(order)
+        print(json.dumps(span.to_json(), indent=2))
+        return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
 
 @app.route('/orders',methods=['GET', 'POST'])
 def orders():
-    active_orders = []
-    key_list = conn.keys()
-    for k in key_list:
-        active_orders.append(pickle.loads(conn.get(k)))
-    return json.dumps(active_orders), 200, {'ContentType':'application/json'} 
+    with tracer.start_span("order-list") as span:
+        span.set_attribute("http.method", request.method)
+        span.set_attribute("http.url", request.url)
+        span.set_attribute("http.status_code", 200)
+        active_orders = []
+        key_list = conn.keys()
+        for k in key_list:
+            active_orders.append(pickle.loads(conn.get(k)))
+        print(json.dumps(span.to_json(), indent=2))
+        return json.dumps(active_orders), 200, {'ContentType':'application/json'} 
 
 if __name__ == '__main__':
-    app.run(debug=True,host='0.0.0.0', port=5003)
+    app.run(debug=False,host='0.0.0.0', port=5003)

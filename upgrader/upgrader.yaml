@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: taqueria
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: taqueria
+  name: taqueria
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: taqueria
+  namespace: taqueria
+subjects:
+- kind: ServiceAccount
+  name: taqueria
+  namespace: taqueria
+roleRef:
+  kind: Role
+  name: taqueria
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: upgrader
+spec:
+  selector:
+    matchLabels:
+      app: upgrader
+  template:
+    metadata:
+      labels:
+        app: upgrader
+      annotations:
+        oneagent.dynatrace.com/inject: "false"
+    spec:
+      containers:
+        - name: upgrader
+          image: mreider/taqueria-upgrader
+          imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: "1"
+            requests:
+              cpu: "0.5"
+      serviceAccountName: taqueria

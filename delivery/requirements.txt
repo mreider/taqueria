@@ -20,7 +20,8 @@ zipp==3.11.0
 uuid==1.30
 redis==4.3.5
 requests==2.28.1
-opentelemetry-exporter-otlp-proto-http==1.14.0
-opentelemetry-instrumentation==0.35b0
-opentelemetry-instrumentation-flask==0.35b0
-opentelemetry-instrumentation-requests==0.35b0
+opentelemetry-exporter-otlp-proto-http
+opentelemetry-instrumentation
+opentelemetry-instrumentation-flask
+opentelemetry-instrumentation-requests
+opentelemetry.instrumentation.logging

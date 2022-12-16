@@ -12,7 +12,14 @@
 <body>
   <div id="loader"></div>
   <div class="container"><br />
-    <button id="order" class="button button-primary">Order 🌯</button>
+    <div class="row">
+      <div class="four columns"><button id="order" class="button button-primary">Order 🌯</button></div>
+      <div class="eight columns" id="new_example_container"><div class="pulsate" id="new_example"></div>New order</div>
+    </div>
+    <div class="row">
+      <div class="twelve columns"><span id="counter"></span> until refresh</div>
+    </div>
+    
     <br>
     <div id="order_table">
 
@@ -113,6 +120,7 @@
           return this;
         },
     };
+
     function setup_table(){
       currentDiv = document.getElementById("order_table");
       let table = document.createElement('table');
@@ -127,7 +135,7 @@
       header_cell1.innerHTML = "Burritos";
       header_cell2.innerHTML = "Tacos";
       header_cell3.innerHTML = "Total";
-      header_cell4.innerHTML = "Delivered";
+      header_cell4.innerHTML = "Complete";
       header.appendChild(header_row);
       header_row.appendChild(header_cell1);
       header_row.appendChild(header_cell2);
@@ -139,14 +147,33 @@
       table.appendChild(data_body);
     }
 
+    function countdown() {
+        var seconds = 7;
+        function tick() {
+          var counter = document.getElementById("counter");
+          seconds--;
+          counter.innerHTML =
+            "0:" + (seconds < 10 ? "0" : "") + String(seconds);
+          if (seconds > 0) {
+            setTimeout(tick, 1000);
+          }
+        }
+        tick();
+      }
+
+
     function load_orders(data_body){
       fetch("/orders")
       .then(response => response.json())
       .then( data => {
-        data_new = document.getElementById('table-body');
+        data_new = document.getElementById('table-body')
+        let existing_ids = new Map();
+        for (const order of JSON.parse(data)){
+          existing = document.getElementById(order.id)
+          existing_ids.set(order.id,existing);
+        }
         data_new.innerHTML = "";
         for (const order of JSON.parse(data)) {
-          console.log("my object: %o", order)
           let data_row = document.createElement('tr');
           let data_cell1 = document.createElement('td');
           let data_cell2 = document.createElement('td');
@@ -161,20 +188,25 @@
           data_row.appendChild(data_cell2);
           data_row.appendChild(data_cell3);
           data_row.appendChild(data_cell4);
+          if(existing_ids.get(order.id) == null){
+            data_row.setAttribute('class','pulsate');
+          }
+          data_row.setAttribute('id',order.id);
           data_new.appendChild(data_row);
         }
         });
       Loader.close();
+      countdown();
       }
-      document.getElementById('order').onclick=function(){
-      checkout();
-    }
-    var data_body = setup_table();
+    document.getElementById('order').onclick=function(){
     checkout();
-    var intervalId = window.setInterval(function(){
-      checkout();
-    }, 7000);
-    });
+    }
+  var data_body = setup_table();
+  checkout();
+  var intervalId = window.setInterval(function(){
+    load_orders();
+  }, 7000);
+  });
     </script>
 </body>
 </html>

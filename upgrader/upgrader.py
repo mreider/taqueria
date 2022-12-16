@@ -1,11 +1,20 @@
 import time
 import schedule
+import random
 from os import path
-import yaml
+from datetime import datetime, timedelta
 from kubernetes import client, config
-import requests
 
-def do_at_half_past():
+def destroy_myself():
+    v1 = client.CoreV1Api()
+    ret = v1.list_namespaced_pod("taqueria")
+    for i in ret.items:
+        pod_name = i.metadata.name
+        if("upgrader" in pod_name):
+            v1.delete_namespaced_pod(pod_name, "taqueria")
+            print("deleted" + i.metadata.name)
+
+def upgrade_delivery_service():
     patch = {
     "spec": {
         "template": {
@@ -30,7 +39,7 @@ def do_at_half_past():
     resp = k8s_apps_v1.patch_namespaced_deployment(name="delivery", namespace="taqueria", body=patch)
     print("deployed. status='%s'" % resp.metadata.name)
 
-def do_four_minutes_later():
+def downgrade_delivery_service():
     patch = {
     "spec": {
         "template": {
@@ -54,28 +63,16 @@ def do_four_minutes_later():
     k8s_apps_v1 = client.AppsV1Api()
     resp = k8s_apps_v1.patch_namespaced_deployment(name="delivery", namespace="taqueria", body=patch)
     print("deployed. status='%s'" % resp.metadata.name)
+    destroy_myself()
 
-def do_constantly():
-    resp = requests.get(url="http://frontend-internal:5001/checkout")
-    print(resp.status_code)
+seconds = random.randint(0, 86400)
+seconds_stop = seconds + 420
+exec_time = datetime.now() + timedelta(seconds=seconds)
+stop_time = datetime.now() + timedelta(seconds=seconds_stop)
+schedule.every().day.at(exec_time.strftime('%H:%M:%S')).do(upgrade_delivery_service)
+schedule.every().day.at(stop_time.strftime('%H:%M:%S')).do(downgrade_delivery_service)
 
-#def do_on_the_hour():
-# We used to delete the redis pod once an hour
-# to clean it up, but now we just expire the
-# undelivered orders.
-#    v1 = client.CoreV1Api()
-#    ret = v1.list_namespaced_pod("taqueria")
-#    for i in ret.items:
-#        pod_name = i.metadata.name
-#        if("redis" in pod_name):
-#            v1.delete_namespaced_pod(pod_name, "taqueria")
-#            print("deleted" + i.metadata.name)
-
-schedule.every().hour.at(":30").do(do_at_half_past)
-#schedule.every().hour.at(":01").do(do_on_the_hour) # see above comments.
-schedule.every().hour.at(":34").do(do_four_minutes_later)
-schedule.every(7).seconds.do(do_constantly)
 
 while True:
     schedule.run_pending()
-    time.sleep(0.1)
+    time.sleep(.5)

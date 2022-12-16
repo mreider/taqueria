@@ -10,6 +10,7 @@ from opentelemetry.sdk.metrics import Counter, MeterProvider
 from opentelemetry.metrics import set_meter_provider, get_meter_provider
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import (BatchSpanProcessor,)
+from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from multiprocessing import Pool
 from multiprocessing import cpu_count
 from flask import Flask, request
@@ -18,6 +19,7 @@ import os
 import json
 import time
 import pickle
+import logging
 
 
 ##################################
@@ -64,6 +66,7 @@ RequestsInstrumentor().instrument()
 trace.set_tracer_provider(tracer_provider)
 tracer = trace.get_tracer(__name__)
 
+
 # End of the Open Telemetry Stuff #
 ###################################
 
@@ -75,6 +78,9 @@ if os.environ["app"] == "k8s":
 
 app = Flask(__name__)
 FlaskInstrumentor().instrument_app(app)
+format = "%(asctime)s %(levelname)s [%(name)s] [%(filename)s:%(lineno)d] [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s resource.service.name=%(otelServiceName)s] - %(message)s"
+LoggingInstrumentor().instrument(set_logging_format=format)
+tracer = trace.get_tracer(__name__)
 
 conn = Redis(host=redis_url)
 
@@ -101,27 +107,21 @@ def deliver_order(order):
 
 @app.route('/',methods=['GET', 'POST'])
 def home():
-    with tracer.start_span("delivery") as span:
-        span.set_attribute("http.method", request.method)
-        span.set_attribute("http.url", request.url)
-        span.set_attribute("http.status_code", 200)
+    with tracer.start_as_current_span("home"):
+        logging.info("home")
         order = json.loads(request.json)
         deliver_order(order)
-        print(json.dumps(span.to_json(), indent=2))
         return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
 
 @app.route('/orders',methods=['GET', 'POST'])
 def orders():
-    with tracer.start_span("order-list") as span:
-        span.set_attribute("http.method", request.method)
-        span.set_attribute("http.url", request.url)
-        span.set_attribute("http.status_code", 200)
+     with tracer.start_as_current_span("orders"):
+        logging.info("orders")
         active_orders = []
         key_list = conn.keys()
         for k in key_list:
             active_orders.append(pickle.loads(conn.get(k)))
-        print(json.dumps(span.to_json(), indent=2))
         return json.dumps(active_orders), 200, {'ContentType':'application/json'} 
 
 if __name__ == '__main__':
-    app.run(debug=False,host='0.0.0.0', port=5003)
+    app.run(debug=True,host='0.0.0.0', port=5003)

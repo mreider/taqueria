@@ -10,14 +10,17 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.sdk.metrics.export import (AggregationTemporality,PeriodicExportingMetricReader,)
 from opentelemetry.sdk.metrics import Counter, MeterProvider
+from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.metrics import set_meter_provider, get_meter_provider
 from redis import Redis
+import logging
 import os
 import uuid
 import json
 import requests
 import random
 import pickle
+import sys
 
 
 ###############################
@@ -61,6 +64,7 @@ span_processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=os.environ["dt_tra
 tracer_provider.add_span_processor(span_processor)
 RequestsInstrumentor().instrument()
 trace.set_tracer_provider(tracer_provider)
+tracer = trace.get_tracer(__name__)
 
 
 # and here our otel code ends #
@@ -75,7 +79,8 @@ if os.environ["app"] == "k8s":
 
 app = Flask(__name__)
 FlaskInstrumentor().instrument_app(app)
-tracer = trace.get_tracer(__name__)
+format = "%(asctime)s %(levelname)s [%(name)s] [%(filename)s:%(lineno)d] [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s resource.service.name=%(otelServiceName)s] - %(message)s"
+LoggingInstrumentor().instrument(set_logging_format=format)
 
 conn = Redis(host=redis_url)
 
@@ -100,10 +105,8 @@ def deliver_order(order):
 
 @app.route('/')
 def home():
-    with tracer.start_span("checkout") as span:
-        span.set_attribute("http.method", request.method)
-        span.set_attribute("http.url", request.url)
-        span.set_attribute("http.status_code", 200)
+   with tracer.start_as_current_span("home"):
+        logging.info("home")
         order_number = str(uuid.uuid4().hex)
         number_of_burritos = random.randint(4, 6)
         number_of_tacos = random.randint(5, 8)
@@ -124,8 +127,7 @@ def home():
         orders_initiated.add(1, attributes)
         submit_order(order_number, pickled_order)
         deliver_order(order)
-        print(json.dumps(span.to_json(), indent=2))
         return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
 
 if __name__ == '__main__':
-    app.run(debug=False,host='0.0.0.0', port=5002)
+    app.run(debug=True,host='0.0.0.0', port=5002)

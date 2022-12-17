@@ -80,7 +80,7 @@ app = Flask(__name__)
 FlaskInstrumentor().instrument_app(app)
 format = "%(asctime)s %(levelname)s [%(name)s] [%(filename)s:%(lineno)d] [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s resource.service.name=%(otelServiceName)s] - %(message)s"
 LoggingInstrumentor().instrument(set_logging_format=format)
-tracer = trace.get_tracer(__name__)
+
 
 conn = Redis(host=redis_url)
 

@@ -101,12 +101,12 @@ def deliver_order(order):
     # that way we can have undelivered vs. delivered orders
     # deliver is handled at the delivery service
     order_json = json.dumps(order)
-    requests.post(url=delivery_url, json=order_json)
+    r = requests.post(url=delivery_url, json=order_json)
+    return r.status_code
 
 @app.route('/')
 def home():
    with tracer.start_as_current_span("home"):
-        logging.info("home")
         order_number = str(uuid.uuid4().hex)
         number_of_burritos = random.randint(4, 6)
         number_of_tacos = random.randint(5, 8)
@@ -126,8 +126,12 @@ def home():
         sales_booked.add( float(order['order_total'][1:]), attributes)
         orders_initiated.add(1, attributes)
         submit_order(order_number, pickled_order)
-        deliver_order(order)
-        return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
+        status_code = deliver_order(order)
+        if (int(status_code) >= 500):
+            logging.error("an error occurred")
+        else:
+            logging.info("success")
+        return json.dumps({'success':True}), status_code, {'ContentType':'application/json'} 
 
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0', port=5002)

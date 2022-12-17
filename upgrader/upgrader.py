@@ -63,14 +63,18 @@ def downgrade_delivery_service():
     k8s_apps_v1 = client.AppsV1Api()
     resp = k8s_apps_v1.patch_namespaced_deployment(name="delivery", namespace="taqueria", body=patch)
     print("deployed. status='%s'" % resp.metadata.name)
-    destroy_myself()
+    # destroy_myself() - good for random time regeneration
 
-seconds = random.randint(0, 86400)
-seconds_stop = seconds + 420
-exec_time = datetime.now() + timedelta(seconds=seconds)
-stop_time = datetime.now() + timedelta(seconds=seconds_stop)
-schedule.every().day.at(exec_time.strftime('%H:%M:%S')).do(upgrade_delivery_service)
-schedule.every().day.at(stop_time.strftime('%H:%M:%S')).do(downgrade_delivery_service)
+schedule.every().hour.at(":30").do(downgrade_delivery_service)
+schedule.every().hour.at(":34").do(upgrade_delivery_service)
+
+# this is to run at a random time every day
+# seconds = random.randint(0, 86400)
+# seconds_stop = seconds + 420
+# exec_time = datetime.now() + timedelta(seconds=seconds)
+# stop_time = datetime.now() + timedelta(seconds=seconds_stop)
+# schedule.every().day.at(exec_time.strftime('%H:%M:%S')).do(upgrade_delivery_service)
+# schedule.every().day.at(stop_time.strftime('%H:%M:%S')).do(downgrade_delivery_service)
 
 
 while True:

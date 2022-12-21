@@ -69,25 +69,25 @@ def home():
 def deliveries():
     with tracer.start_as_current_span("orders"):
         delivery_url_full = delivery_url + "/orders"    
-        resp = requests.get(url=delivery_url_full)
-        if (int(resp.status_code) >= 500):
-            logging.error("an error occurred")
-        else:
+        r = requests.get(url=delivery_url_full, timeout=3)
+        if (r.ok):
             logging.info("success")
-        if resp.content.decode("utf-8") == "{}":
-            return json.dumps({"info":"no orders placed"}), resp.status_code, {'ContentType':'application/json'} 
         else:
-            return json.dumps(resp.content.decode("utf-8")), resp.status_code, {'ContentType':'application/json'} 
+            logging.error("an error occurred")
+        if r.content.decode("utf-8") == "{}":
+            return json.dumps({"info":"no orders placed"}), r.status_code, {'ContentType':'application/json'} 
+        else:
+            return json.dumps(r.content.decode("utf-8")), r.status_code, {'ContentType':'application/json'} 
 
 @app.route('/checkout')
 def checkout():
     with tracer.start_as_current_span("checkout"):
-        resp = requests.get(url=checkout_url)
-        if (int(resp.status_code) >= 500):
-            logging.error("an error occurred")
-        else:
+        r = requests.get(url=checkout_url, timeout=3)
+        if (r.ok):
             logging.info("success")
-        return json.dumps({'success':True}), resp.status_code , {'ContentType':'application/json'} 
+        else:
+            logging.error("an error occurred")
+        return json.dumps({'success':True}), r.status_code , {'ContentType':'application/json'} 
 
 if __name__ == '__main__':
     app.run(debug=False,host='0.0.0.0', port=5001)

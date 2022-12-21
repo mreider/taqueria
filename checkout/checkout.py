@@ -101,8 +101,8 @@ def deliver_order(order):
     # that way we can have undelivered vs. delivered orders
     # deliver is handled at the delivery service
     order_json = json.dumps(order)
-    r = requests.post(url=delivery_url, json=order_json)
-    return r.status_code
+    r = requests.post(url=delivery_url, json=order_json, timeout=3)
+    return r
 
 @app.route('/')
 def home():
@@ -126,12 +126,12 @@ def home():
         sales_booked.add( float(order['order_total'][1:]), attributes)
         orders_initiated.add(1, attributes)
         submit_order(order_number, pickled_order)
-        status_code = deliver_order(order)
-        if (int(status_code) >= 500):
-            logging.error("an error occurred")
-        else:
+        r = deliver_order(order)
+        if (r.ok):
             logging.info("success")
-        return json.dumps({'success':True}), status_code, {'ContentType':'application/json'} 
+        else:
+            logging.error("an error occurred")
+        return json.dumps({'success':True}), r.status_code, {'ContentType':'application/json'} 
 
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0', port=5002)

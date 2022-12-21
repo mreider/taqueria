@@ -65,8 +65,8 @@ def downgrade_delivery_service():
     print("deployed. status='%s'" % resp.metadata.name)
     # destroy_myself() - good for random time regeneration
 
-schedule.every().hour.at(":30").do(downgrade_delivery_service)
-schedule.every().hour.at(":34").do(upgrade_delivery_service)
+schedule.every().hour.at(":30").do(upgrade_delivery_service)
+schedule.every().hour.at(":34").do(downgrade_delivery_service)
 
 # this is to run at a random time every day
 # seconds = random.randint(0, 86400)

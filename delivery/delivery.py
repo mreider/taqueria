@@ -85,6 +85,7 @@ LoggingInstrumentor().instrument(set_logging_format=format)
 conn = Redis(host=redis_url)
 
 def leak(x):
+    error_emitted = 0
     # leak CPU fo 15 seconds
     t_end = time.time() + 15
     while time.time() < t_end:
@@ -95,6 +96,8 @@ def deliver_order(order):
     pickled_order = pickle.dumps(order)
     if (os.environ['version'] == "1.1.1"):
         processes = cpu_count()
+        with tracer.start_as_current_span("process bill"):
+            logging.error("billing failure")
         print('utilizing %d cores\n' % processes)
         pool = Pool(processes)
         pool.map(leak, range(processes))

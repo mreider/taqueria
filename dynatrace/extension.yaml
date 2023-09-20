@@ -1,0 +1,35 @@
+name: custom:taqueria-sales-counter
+version: 1.0.17
+minDynatraceVersion: 1.257.0
+author:
+  name: Matthew Reider
+screens:
+  - entityType: CLOUD_APPLICATION
+    detailsInjections:
+      - type: CHART_GROUP
+        key: orders
+        conditions:
+          - entityAttribute|entityName=delivery
+    chartsCards:
+      - key: orders
+        displayName: Order Fulfillment
+        numberOfVisibleCharts: 2
+        charts:
+          - displayName: sales-billed
+            visualizationType: GRAPH_CHART
+            graphChartConfig:
+              visualization:
+                themeColor: DEFAULT
+                seriesType: LINE
+              metrics:
+                - metricSelector: sales-billed.count:splitBy("dt.entity.cloud_application")
+          - displayName: orders-fulfilled
+            visualizationType: GRAPH_CHART
+            graphChartConfig:
+              visualization:
+                themeColor: DEFAULT
+                seriesType: LINE
+              metrics:
+                - metricSelector: orders-fulfilled.count:splitBy("dt.entity.cloud_application")
+                  visualization:
+                    displayName: Fulfillment Ratio

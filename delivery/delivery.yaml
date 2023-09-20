@@ -1,0 +1,62 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: delivery
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: delivery
+  template:
+    metadata:
+      labels:
+        app: delivery
+      annotations:
+        oneagent.dynatrace.com/inject: "false"
+    spec:
+      containers:
+        - name: delivery
+          image: mreider/taqueria-delivery
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5003
+          resources:
+            limits:
+              cpu: "1"
+            requests:
+              cpu: "0.5"
+          env:
+            - name: app
+              value: "k8s"
+            - name: version
+              value: "1.0.1"
+            - name: FLASK_ENV
+              value: production
+            - name: dt_token
+              valueFrom:
+                secretKeyRef:
+                  name: taqueria
+                  key: dttoken
+            - name: dt_metrics_endpoint
+              valueFrom:
+                configMapKeyRef:
+                  name: taqueria
+                  key: dt_metrics_endpoint
+            - name: dt_traces_endpoint
+              valueFrom:
+                configMapKeyRef:
+                  name: taqueria
+                  key: dt_traces_endpoint
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: delivery
+spec:
+  selector:
+    app: delivery
+  ports:
+    - protocol: "TCP"
+      port: 5003
+      targetPort: 5003

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taqueria
+  namespace: taqueria
+data:
+  dt_metrics_endpoint: https://rss61842.sprint.dynatracelabs.com/api/v2/otlp/v1/metrics 
+  dt_traces_endpoint: https://rss61842.sprint.dynatracelabs.com/api/v2/otlp/v1/traces           
+  dt_mint_endpoint: https://rss61842.sprint.dynatracelabs.com/api/v2/metrics/ingest

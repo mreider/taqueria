@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Taqueria</title>
+  {{rum_code|safe}}
+  <link rel="stylesheet" href="/static/skeleton.css" />
+  <link rel="stylesheet" href="/static/normalize.css" />
+  <link rel="stylesheet" href="/static/loader.css" />
+  <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+  <div id="loader"></div>
+  <div class="container"><br />
+    <div class="row">
+      <div class="four columns"><button id="order" class="button button-primary">Order 🌯</button></div>
+      <div class="eight columns" id="new_example_container"><div class="pulsate" id="new_example"></div>New order</div>
+    </div>
+    <div class="row">
+      <div class="twelve columns"><span id="counter"></span> until refresh</div>
+    </div>
+    
+    <br>
+    <div id="order_table">
+
+    </div>
+</div>
+<script>
+  document.addEventListener("DOMContentLoaded", function(event) { 
+    
+    function checkout(){
+      Loader.open();
+      fetch('/checkout', {
+        method: 'GET',
+        headers: {
+        'Accept': 'application/json',
+          },
+      })
+      .then(response => response.text())
+      .then(text => {
+        console.log(text);
+        load_orders();
+        Loader.close();
+        }
+      )
+    }
+
+    function emojizer(num,type) {
+        emojis = ""
+        if (num == 0) {emojis = "❌";}
+        for (let index = 0; index < num; ++index) { 
+          switch (type) {
+            case 'b':
+              emojis = emojis + "🌯";
+              break;
+            case 't':
+              emojis = emojis + "🌮";
+              break;
+            case 'c':
+              emojis = emojis + "✅";
+              break;
+            default:
+              console.log('wrong type');
+          }
+        }
+      return emojis
+    }
+    var Loader = {
+        loader: null,
+        body: null,
+        html: '<span><svg width="40" height="40" version="1.1" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="15"></svg></span>',
+        cssClass: "loader",
+        check: function () {
+          if (this.body == null) {
+            this.body = document.body;
+          }
+        },
+        open: function () {
+          this.check();
+          if (!this.isOpen()) {
+            this.loader = document.createElement("div");
+            this.loader.setAttribute("id", "loader");
+            this.loader.classList.add("loader_website");
+            this.loader.innerHTML = this.html;
+            this.body.append(this.loader);
+            this.body.classList.add(this.cssClass);
+          }
+          return this;
+        },
+        close: function () {
+          this.check();
+          if (this.isOpen()) {
+            this.body.classList.remove(this.cssClass);
+            this.loader.remove();
+          }
+          return this;
+        },
+        isOpen: function () {
+          this.check();
+          return this.body.classList.contains(this.cssClass);
+        },
+        ifOpened: function (callback, close) {
+          this.check();
+          if (this.isOpen()) {
+            if (!!close) this.close();
+            if (typeof callback === "function") {
+              callback();
+            }
+          }
+          return this;
+        },
+        ifClosed: function (callback, open) {
+          this.check();
+          if (!this.isOpen()) {
+            if (!!open) this.open();
+            if (typeof callback === "function") {
+              callback();
+            }
+          }
+          return this;
+        },
+    };
+
+    function setup_table(){
+      currentDiv = document.getElementById("order_table");
+      let table = document.createElement('table');
+      table.classList.add('u-full-width');
+      currentDiv.appendChild(table);
+      let header = document.createElement('thead');
+      let header_row = document.createElement('tr');
+      let header_cell1 = document.createElement('th');
+      let header_cell2 = document.createElement('th');
+      let header_cell3 = document.createElement('th');
+      let header_cell4 = document.createElement('th');
+      header_cell1.innerHTML = "Burritos";
+      header_cell2.innerHTML = "Tacos";
+      header_cell3.innerHTML = "Total";
+      header_cell4.innerHTML = "Complete";
+      header.appendChild(header_row);
+      header_row.appendChild(header_cell1);
+      header_row.appendChild(header_cell2);
+      header_row.appendChild(header_cell3);
+      header_row.appendChild(header_cell4);
+      table.appendChild(header)
+      let data_body = document.createElement('tbody');
+      data_body.setAttribute('id','table-body');
+      table.appendChild(data_body);
+    }
+
+    function countdown() {
+        var seconds = 7;
+        function tick() {
+          var counter = document.getElementById("counter");
+          seconds--;
+          counter.innerHTML =
+            "0:" + (seconds < 10 ? "0" : "") + String(seconds);
+          if (seconds > 0) {
+            setTimeout(tick, 1000);
+          }
+        }
+        tick();
+      }
+
+
+    function load_orders(data_body){
+      fetch("/orders")
+      .then(response => response.json())
+      .then( data => {
+        data_new = document.getElementById('table-body')
+        let existing_ids = new Map();
+        for (const order of JSON.parse(data)){
+          existing = document.getElementById(order.id)
+          existing_ids.set(order.id,existing);
+        }
+        data_new.innerHTML = "";
+        for (const order of JSON.parse(data)) {
+          let data_row = document.createElement('tr');
+          let data_cell1 = document.createElement('td');
+          let data_cell2 = document.createElement('td');
+          let data_cell3 = document.createElement('td');
+          let data_cell4 = document.createElement('td');
+          data_cell1.innerHTML = emojizer(order.burritos,"b")
+          data_cell2.innerHTML = emojizer(order.tacos,"t")
+          data_cell3.innerHTML = order.order_total
+          data_cell4.innerHTML = emojizer(order.order_complete,"c")
+          data_row.appendChild(data_cell1);
+          data_row.appendChild(data_cell1);
+          data_row.appendChild(data_cell2);
+          data_row.appendChild(data_cell3);
+          data_row.appendChild(data_cell4);
+          if(existing_ids.get(order.id) == null){
+            data_row.setAttribute('class','pulsate');
+          }
+          data_row.setAttribute('id',order.id);
+          data_new.appendChild(data_row);
+        }
+        });
+      Loader.close();
+      countdown();
+      }
+    document.getElementById('order').onclick=function(){
+    checkout();
+    }
+  var data_body = setup_table();
+  checkout();
+  var intervalId = window.setInterval(function(){
+    load_orders();
+  }, 7000);
+  });
+    </script>
+</body>
+</html>

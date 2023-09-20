@@ -1,0 +1,78 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+      annotations:
+        oneagent.dynatrace.com/inject: "false"
+    spec:
+      containers:
+        - name: frontend
+          image: mreider/taqueria-frontend
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5001
+          resources:
+            limits:
+              cpu: "1"
+            requests:
+              cpu: "0.5"
+          env:
+            - name: app
+              value: "k8s"
+            - name: FLASK_ENV
+              value: production
+            - name: dt_token
+              valueFrom:
+                secretKeyRef:
+                  name: taqueria
+                  key: dttoken
+            - name: dt_metrics_endpoint
+              valueFrom:
+                configMapKeyRef:
+                  name: taqueria
+                  key: dt_metrics_endpoint
+            - name: dt_traces_endpoint
+              valueFrom:
+                configMapKeyRef:
+                  name: taqueria
+                  key: dt_traces_endpoint
+            - name: rum_code
+              valueFrom:
+                configMapKeyRef:
+                  name: taqueria
+                  key: rum_code
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  selector:
+    app: frontend
+  ports:
+    - protocol: "TCP"
+      port: 80
+      targetPort: 5001
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-internal
+spec:
+  selector:
+    app: frontend
+  ports:
+    - protocol: "TCP"
+      port: 5001
+      targetPort: 5001
